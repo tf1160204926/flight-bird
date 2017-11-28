@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+</head>
+<body>
+	<script>
+		// function fn(){
+		// 	console.log(this);
+		// }
+		// var obj={
+		// 	f:fn
+		// }
+		// var o={
+		// 	obj:{
+		// 		f:fn
+		// 	}
+		// }
+		// fn();//window
+		// obj.f();//f
+		// o.obj.f();//f
+		// new fn();//new出来的fn对象
+		// new obj.f();//new 出来的f对象，指向的还是fn
+		// new o.obj.f();//new出来的f对象，指向的还是fn
+		// fn.call([1,2,5,4]);//把fn的this改成这个数组
+		// fn.apply([1,2,5,4]);//把fn的this改成这个数组
+		// fn.apply({val: 20});//this指的是{val: 20}
+
+		// setTimeout(function(){
+		// 	console.log(this);//定时器里面的this指向的是window
+		// },2000)
+
+
+function fn() {
+    this.a = 0;
+    this.b = function() {
+        alert(this.a)
+    }
+} 
+fn.prototype = {
+    b: function() {
+        this.a = 20;
+        alert(this.a);
+    },
+    c: function() {
+        this.a = 30;
+        alert(this.a);
+    }
+}
+var myfn = new fn();
+myfn.b();
+myfn.c();
+
+
+
+
+	</script>
+</body>
+</html>

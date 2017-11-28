@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+</head>
+
+<body>
+    <canvas id="cvs"></canvas>
+    <script src="loadImage.js"></script>
+    <script>
+    var cvs = document.getElementById("cvs");
+    var ctx = cvs.getContext("2d");
+    // 函数extend，用于混入式继承
+    function extend(o1, o2) {
+        for (var k in o2) {
+            if (o2.hasOwnProperty(k)) {
+                o1[k] = o2[k];
+            }
+        }
+    }
+
+    // 天空函数
+    function Sky(ctx, img, speed) {
+        this.ctx = ctx;
+        this.img = img;
+        this.speed = speed;
+        this.width = this.img.width;
+        this.height = this.img.height;
+        Sky.len++;
+        this.x = -this.width * (Sky.len - 1);
+        this.y = 0;
+    }
+
+    Sky.len = 0;
+    Sky.prototype = {
+        constructor: Sky,
+        // 绘制天空
+        draw: function() {
+            this.ctx.drawImage(this.img, this.x, this.y, this.img.width, this.img.height, 0, 0, this.img.width, this.img.height);
+        },
+        // 天空数据更新
+        updata: function() {
+            this.x -= this.speed;
+            if (this.x < -this.width) {
+                this.x += this.width * Sky.len;
+            }
+
+        }
+    }
+
+    // 小鸟函数
+    function Bird(ctx, img, x, y, widthFrame, heightFrame, speedY, speedX, speedPlus) {
+        this.ctx = ctx;
+        this.img = img;
+        this.x = x;
+        this.y = y;
+        this.widthFrame = widthFrame;
+        this.heightFrame = heightFrame;
+        this.width = this.img.width / this.widthFrame;
+        this.height = this.img.height / this.heightFrame;
+        this.speedY = speedY || 2;
+        this.speedX = speedX || 10;
+        this.speedPlus = speedPlus;
+        this.currentFrame = 0;
+    }
+    Bird.prototype = {
+        constructor: Bird,
+        // 绘制小鸟
+        draw: function() {
+
+            // 旋转度数随着速度的增加而增加，最大45度
+            var rotateangle = Math.PI / 180 * 10;
+            var rotatemax = Math.PI / 180 * 45;
+            var rotateRadian = rotateangle * this.speedY;
+            rotateRadian = rotateRadian >= rotatemax ? rotatemax : rotateRadian;
+            this.ctx.save();
+            this.ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+            this.ctx.rotate(rotateRadian);
+            this.ctx.drawImage(this.img, this.width * this.currentFrame, 0, this.width, this.height, -this.width / 2, -this.height / 2, this.width, this.height);
+            this.ctx.restore();
+        },
+        // 小鸟数据更新
+        updata: function() {
+            this.y += this.speedY;
+            this.speedY += this.speedPlus;
+            this.x += this.speedX;
+            // 小鸟飞翔
+            this.currentFrame++;
+            if (this.currentFrame >= this.widthFrame) {
+                this.currentFrame = 0;
+            }
+            // this.currentFrame=++this.currentFrame>=this.widthFrame?0:this.currentFrame;
+        },
+        // 小鸟点击事件，点击后要往上走
+        bind: function() {
+            var that = this;
+            // 给小鸟点击事件
+            that.ctx.canvas.addEventListener("click", function() {
+                // that.y-=2;//如果直接写成是变换y值的话，可能在最上面处点击会出现跳跃很高，为了让他能距离画布顶端越近跳的越少，可以使用speed
+                that.speedY = -6;
+            })
+        }
+    }
+
+    // 大地的函数
+    function Land(ctx, img, speed) {
+        this.ctx = ctx;
+        this.img = img;
+        this.speed = speed || 2;
+        this.width = this.img.width;
+        this.height = this.img.height;
+        Land.len++;
+        // x的初始坐标是0，因为创建第一个对象时，len是1，那么x就是0.当创建第二个对象时，他的起始坐标就是1倍的大地宽度，依次类推
+        this.x = this.width * (Land.len - 1);
+        this.y = this.ctx.canvas.height - this.height;
+    }
+    // 引用extend函数，o1继承o2的所有属性
+    extend(Land.prototype, {
+        draw: function() {
+            this.ctx.drawImage(this.img, this.x, this.y);
+        },
+        updata: function() {
+            this.x -= this.speed;
+            if (this.x <= -this.width) {
+                this.x += this.width * Land.len;
+            }
+        }
+    })
+    Land.len = 0;
+
+    // 管道的函数
+    function Pipe(ctx, imgDown, imgUp, speed, space, landHeight, minHeight) {
+        this.ctx = ctx;
+        this.imgDown = imgDown;
+        this.imgUp = imgUp;
+        this.speed = speed || 10;
+        this.space = space;
+        this.width = this.imgDown.width;
+        this.height = this.imgDown.height; //在这个图像里，高度是400px
+        this.landHeight = landHeight;
+        Pipe.len++;
+        this.x = 300 + this.width * 3 * (Pipe.len - 1);
+        this.y = 0;
+        this.minHeight = minHeight;
+        this._init();
+    }
+
+    extend(Pipe.prototype, {
+        // 在初始化中要给出管道的最大高度
+        _init: function() {
+
+            // 最小高度是50
+            // 单个管道的
+            var maxHeight = this.ctx.canvas.height - this.space - this.landHeight - this.minHeight;
+            var randomHeight = Math.random() * maxHeight;
+            // this.y=randomHeight;
+            // 单个管道的随机高度
+            randomHeight = randomHeight <= this.minHeight ? this.minHeight : randomHeight;
+            // 上面管道的y坐标
+            this.downY = randomHeight - this.height;
+            // 下面管道的坐标
+            this.upY = randomHeight + this.space;
+        },
+        drawDown: function() {
+            this.ctx.drawImage(this.imgDown, this.x, this.downY);
+            this.ctx.drawImage(this.imgUp, this.x, this.upY);
+            //绘制管道的路径为了判断小鸟是否撞向管道。
+            this.drawPath();
+        },
+        drawPath: function() {
+        	// 绘制管道的矩形路径，这个矩形就是上下管道本身的形状，如果小鸟的位置在这个管道上，那么就以为着小鸟撞在管道上了，游戏结束
+        	// 另外这里是每创建一个管道对象，就给这个管道绘制路径，一个画面中有6个管道，不能再这6个管道中分别清除路径，也就是说清除路径不能放在drawPath中，因为这样的话创建一个就清除一个路径，那么即使小鸟装上管道，因为撞上的这个管道的路径已经清除了，所以即使撞上也不会停止。因此需要写在调用这个函数的外面，每6个一清除
+        	// this.ctx.beginPath();
+            this.ctx.rect(this.x, this.downY, this.width, this.height);
+            this.ctx.rect(this.x, this.upY, this.width, this.height);
+            this.ctx.stroke();
+        },
+        updata: function() {
+            this.x -= this.speed;
+            if (this.x <= -this.width) {
+                this._init();
+                this.x += this.width * 3 * Pipe.len;
+            }
+        }
+    })
+    Pipe.len = 0;
+
+    Foo({
+        land: "img/land.png",
+        bird: "img/bird.png",
+        pipeDown: "img/pipeDown.png",
+        pipeUp: "img/pipeUp.png",
+        sky: "img/sky.png"
+    }, function(obj) {
+        cvs.width = obj.sky.width;
+        cvs.height = obj.sky.height;
+        // 创建两个新对象，因为要轮播
+
+        var sky1 = new Sky(ctx, obj.sky, 10);
+        var sky2 = new Sky(ctx, obj.sky, 10);
+        // 创建一个小鸟对象
+        var bird = new Bird(ctx, obj.bird, 0, 0, 3, 1, 5, 1, 1);
+
+        // 因为画布的宽需要3到4个大地的宽度，所以需要创建4个大地的对象，用于轮播
+        // 创建4个大地对象
+        var land1 = new Land(ctx, obj.land, 10);
+        var land2 = new Land(ctx, obj.land, 10);
+        var land3 = new Land(ctx, obj.land, 10);
+        var land4 = new Land(ctx, obj.land, 10);
+        // 创建6个管道
+        var pipe1 = new Pipe(ctx, obj.pipeDown, obj.pipeUp, 5, 120, obj.land.height, 50);
+        var pipe2 = new Pipe(ctx, obj.pipeDown, obj.pipeUp, 5, 120, obj.land.height, 50);
+        var pipe3 = new Pipe(ctx, obj.pipeDown, obj.pipeUp, 5, 120, obj.land.height, 50);
+        var pipe4 = new Pipe(ctx, obj.pipeDown, obj.pipeUp, 5, 120, obj.land.height, 50);
+        var pipe5 = new Pipe(ctx, obj.pipeDown, obj.pipeUp, 5, 120, obj.land.height, 50);
+        var pipe6 = new Pipe(ctx, obj.pipeDown, obj.pipeUp, 5, 120, obj.land.height, 50);
+        // 定时器
+        var timer = setInterval(function() {
+            // 在每次绘制之前先判断鸟是否碰撞到管道，或碰到地面或飞出天空，就停止计时，并提示文字,返回return
+            // 判断小鸟所在的位置
+            var birdx = bird.x + bird.width / 2;
+            var birdy = bird.y + bird.height / 2;
+            if (ctx.isPointInPath(birdx, birdy) || birdy < 0 || birdy > cvs.height-obj.land.height) {
+                clearInterval(timer);
+                ctx.fillStyle = "rgba(100,100,100,0.8)";
+                ctx.fillRect(0, 0, cvs.width, cvs.height);
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = "red";
+                ctx.font = "900 40px 微软雅黑";
+                ctx.fillText("GAME OVER!!!", cvs.width / 2, cvs.height / 2);
+                ctx.stroke();
+                return;
+            }
+            // 天空的函数调用
+            sky1.draw();
+            sky1.updata();
+
+            sky2.draw();
+            sky2.updata();
+
+            // 小鸟的函数调用
+            bird.draw();
+            bird.updata();
+            bird.bind();
+
+            // 大地的函数调用
+            land1.draw();
+            land1.updata();
+
+            land2.draw();
+            land2.updata();
+
+            land3.draw();
+            land3.updata();
+
+            land4.draw();
+            land4.updata();
+
+
+            // 因为写了管道绘制路径，所以每次这6个管道绘制之前，先清除路径,注意，是6个6个一绘制，清除时也是6个一起清除，也就是这次进来清除的是上一次的6个管道路径。这个不能放在原型的drawpath里面，否则就成了一个一个清除了，也就是每创建一个管道就清除，这样的话在第一轮结束后就停止计时了
+            ctx.beginPath();
+
+            // 管道的函数
+            pipe1.drawDown();
+            pipe1.updata();
+
+            pipe2.drawDown();
+            pipe2.updata();
+
+            pipe3.drawDown();
+            pipe3.updata();
+
+            pipe4.drawDown();
+            pipe4.updata();
+
+
+            pipe5.drawDown();
+            pipe5.updata();
+
+            pipe6.drawDown();
+            pipe6.updata();
+
+
+        }, 100)
+
+
+    })
+    </script>
+</body>
+
+</html>
